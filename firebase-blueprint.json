@@ -21,6 +21,9 @@
         "role": { "type": "string", "enum": ["user", "admin"] },
         "isBlocked": { "type": "boolean" },
         "tokens": { "type": "number" },
+        "isProfileComplete": { "type": "boolean" },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "createdAt", "role", "isBlocked", "tokens"]
@@ -42,6 +45,9 @@
         "role": { "type": "string", "enum": ["user", "admin"] },
         "isBlocked": { "type": "boolean" },
         "tokens": { "type": "number" },
+        "isProfileComplete": { "type": "boolean" },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "displayName", "createdAt", "role", "isBlocked", "tokens"]
@@ -118,6 +124,31 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "subject", "content", "isRead", "createdAt"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "A 1-on-1 chat conversation.",
+      "type": "object",
+      "properties": {
+        "participantIds": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "lastMessageTime": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participantIds", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message within a chat.",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "senderId", "text", "isRead", "createdAt"]
     }
   },
   "firestore": {
@@ -148,6 +179,14 @@
     "/admin_messages/{messageId}": {
       "schema": { "$ref": "#/entities/AdminMessage" },
       "description": "Stores messages from admins to users."
+    },
+    "/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/Chat" },
+      "description": "Stores chat conversations."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Stores messages within a chat."
     }
   }
 }

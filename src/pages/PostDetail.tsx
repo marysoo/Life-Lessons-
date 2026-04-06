@@ -8,13 +8,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
-import { Heart, MessageCircle } from 'lucide-react';
+import { Heart, MessageCircle, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrorHandler';
 
 export function PostDetail() {
   const { postId } = useParams<{ postId: string }>();
-  const { user, isBlocked } = useAuth();
+  const { user, isBlocked, isProfileComplete } = useAuth();
   const [post, setPost] = useState<any>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -68,7 +68,7 @@ export function PostDetail() {
   }, [postId, user]);
 
   const handleLike = async () => {
-    if (!user || !post || isBlocked) return;
+    if (!user || !post || isBlocked || !isProfileComplete) return;
     const likeId = `${user.uid}_${postId}`;
     const likeRef = doc(db, 'likes', likeId);
     const postRef = doc(db, 'posts', postId);
@@ -106,7 +106,7 @@ export function PostDetail() {
 
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !postId || !newComment.trim() || isBlocked) return;
+    if (!user || !postId || !newComment.trim() || isBlocked || !isProfileComplete) return;
 
     setSubmittingComment(true);
     try {
@@ -192,7 +192,8 @@ export function PostDetail() {
               size="sm" 
               className={`gap-2 ${isLiked ? 'text-orange-500 hover:text-orange-600 hover:bg-orange-50' : 'text-slate-500'}`}
               onClick={handleLike}
-              disabled={isBlocked}
+              disabled={isBlocked || (user && !isProfileComplete)}
+              title={user && !isProfileComplete ? "Complete your profile to like posts" : ""}
             >
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
               <span>{post.likesCount || 0}</span>
@@ -212,6 +213,12 @@ export function PostDetail() {
           isBlocked ? (
             <div className="bg-red-50 p-4 rounded-lg text-center text-red-600 text-sm border border-red-100">
               Your account is blocked. You cannot comment on lessons.
+            </div>
+          ) : !isProfileComplete ? (
+            <div className="bg-orange-50 p-4 rounded-lg text-center text-orange-700 text-sm border border-orange-200 flex flex-col items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              <p>You need to complete your profile before you can comment.</p>
+              <Link to="/settings" className="text-orange-600 font-medium hover:underline">Go to Settings</Link>
             </div>
           ) : (
             <form onSubmit={handleComment} className="flex gap-4">

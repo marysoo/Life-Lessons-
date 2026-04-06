@@ -7,10 +7,11 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Badge } from '../components/ui/badge';
-import { Coins, PlusCircle } from 'lucide-react';
+import { Coins, PlusCircle, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export function AdsManager() {
-  const { user, isBlocked, tokens } = useAuth();
+  const { user, isBlocked, tokens, isProfileComplete } = useAuth();
   const [ads, setAds] = useState<any[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -56,7 +57,7 @@ export function AdsManager() {
 
   const submitAd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || isBlocked) return;
+    if (!user || isBlocked || !isProfileComplete) return;
     
     if (tokens < 50) {
       alert('Insufficient tokens. You need 50 tokens to submit an ad.');
@@ -112,6 +113,21 @@ export function AdsManager() {
 
   if (isBlocked) {
     return <div className="text-center py-12 text-red-500">Your account is blocked. You cannot manage ads.</div>;
+  }
+
+  if (!isProfileComplete) {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-12 bg-white rounded-xl border border-orange-200 shadow-sm">
+        <AlertCircle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Complete Your Profile</h2>
+        <p className="text-slate-600 mb-6">You need to complete your profile before you can manage ads.</p>
+        <Link to="/settings">
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white">
+            Go to Settings
+          </Button>
+        </Link>
+      </div>
+    );
   }
 
   return (

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 declare global {
@@ -14,6 +14,8 @@ interface AuthContextType {
   profileRole: string;
   isBlocked: boolean;
   tokens: number;
+  isProfileComplete: boolean;
+  isOnline: boolean;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   sendPhoneOtp: (phoneNumber: string, containerId: string) => Promise<void>;
@@ -28,11 +30,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profileRole, setProfileRole] = useState('user');
   const [isBlocked, setIsBlocked] = useState(false);
   const [tokens, setTokens] = useState(0);
+  const [isProfileComplete, setIsProfileComplete] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   useEffect(() => {
     let unsubscribeDoc: () => void;
+    let onlineInterval: NodeJS.Timeout;
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -42,9 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         unsubscribeDoc = onSnapshot(privateUserRef, async (docSnap) => {
           if (docSnap.exists()) {
-            setProfileRole(docSnap.data().role || 'user');
-            setIsBlocked(docSnap.data().isBlocked || false);
-            setTokens(docSnap.data().tokens || 0);
+            const data = docSnap.data();
+            setProfileRole(data.role || 'user');
+            setIsBlocked(data.isBlocked || false);
+            setTokens(data.tokens || 0);
+            setIsProfileComplete(data.isProfileComplete || false);
+            setIsOnline(data.isOnline || false);
           } else {
             // Create user documents if they don't exist
             const timestamp = serverTimestamp();
@@ -60,6 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               role: 'user',
               isBlocked: false,
               tokens: 100, // Initial tokens for new users
+              isProfileComplete: false,
+              isOnline: true,
+              lastSeen: timestamp,
               createdAt: timestamp,
             });
 
@@ -71,27 +82,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               role: 'user',
               isBlocked: false,
               tokens: 100,
+              isProfileComplete: false,
+              isOnline: true,
+              lastSeen: timestamp,
               createdAt: timestamp,
             });
             
             setProfileRole('user');
             setIsBlocked(false);
             setTokens(100);
+            setIsProfileComplete(false);
+            setIsOnline(true);
           }
           setLoading(false);
         });
+
+        // Update online status periodically
+        const updateOnlineStatus = async () => {
+          try {
+            const timestamp = serverTimestamp();
+            await updateDoc(privateUserRef, { isOnline: true, lastSeen: timestamp });
+            await updateDoc(publicProfileRef, { isOnline: true, lastSeen: timestamp });
+          } catch (error) {
+            console.error("Failed to update online status", error);
+          }
+        };
+
+        updateOnlineStatus();
+        onlineInterval = setInterval(updateOnlineStatus, 60000); // Update every minute
+
+        const handleUnload = () => {
+          // Attempt to set offline on unload (best effort)
+          updateDoc(privateUserRef, { isOnline: false, lastSeen: serverTimestamp() }).catch(() => {});
+          updateDoc(publicProfileRef, { isOnline: false, lastSeen: serverTimestamp() }).catch(() => {});
+        };
+        window.addEventListener('beforeunload', handleUnload);
+
       } else {
         setProfileRole('user');
         setIsBlocked(false);
         setTokens(0);
+        setIsProfileComplete(false);
+        setIsOnline(false);
         setLoading(false);
         if (unsubscribeDoc) unsubscribeDoc();
+        if (onlineInterval) clearInterval(onlineInterval);
       }
     });
     
     return () => {
       unsubscribeAuth();
       if (unsubscribeDoc) unsubscribeDoc();
+      if (onlineInterval) clearInterval(onlineInterval);
     };
   }, []);
 
@@ -136,6 +178,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logOut = async () => {
     try {
+      if (user) {
+        const privateUserRef = doc(db, 'users_private', user.uid);
+        const publicProfileRef = doc(db, 'public_profiles', user.uid);
+        await updateDoc(privateUserRef, { isOnline: false, lastSeen: serverTimestamp() });
+        await updateDoc(publicProfileRef, { isOnline: false, lastSeen: serverTimestamp() });
+      }
       await signOut(auth);
     } catch (error) {
       console.error('Error signing out', error);
@@ -143,7 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profileRole, isBlocked, tokens, loading, signInWithGoogle, sendPhoneOtp, verifyPhoneOtp, logOut }}>
+    <AuthContext.Provider value={{ user, profileRole, isBlocked, tokens, isProfileComplete, isOnline, loading, signInWithGoogle, sendPhoneOtp, verifyPhoneOtp, logOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -153,4 +201,4 @@ export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
-};
+}

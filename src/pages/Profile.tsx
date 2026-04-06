@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Card, CardHeader, CardContent, CardFooter } from '../components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
 import { Heart, MessageCircle, MapPin, Phone, Globe, Calendar, User as UserIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrorHandler';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Profile() {
   const { userId } = useParams<{ userId: string }>();
+  const { user, isProfileComplete } = useAuth();
+  const navigate = useNavigate();
   const [profileUser, setProfileUser] = useState<any>(null);
   const [userPosts, setUserPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,14 +67,19 @@ export function Profile() {
     <div className="max-w-3xl mx-auto space-y-8">
       <div className="flex flex-col items-center text-center space-y-4 p-8 bg-white rounded-2xl border border-sky-100 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-sky-400 to-orange-400 opacity-20"></div>
-        <Avatar className="h-24 w-24 border-4 border-white shadow-md relative z-10">
-          <AvatarImage src={profileUser.photoURL} referrerPolicy="no-referrer" />
-          <AvatarFallback className="text-2xl bg-sky-100 text-sky-700">{profileUser.displayName?.charAt(0)}</AvatarFallback>
-        </Avatar>
+        <div className="relative z-10">
+          <Avatar className="h-24 w-24 border-4 border-white shadow-md">
+            <AvatarImage src={profileUser.photoURL} referrerPolicy="no-referrer" />
+            <AvatarFallback className="text-2xl bg-sky-100 text-sky-700">{profileUser.displayName?.charAt(0)}</AvatarFallback>
+          </Avatar>
+          {profileUser.isOnline && (
+            <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 border-4 border-white rounded-full"></div>
+          )}
+        </div>
         <div className="relative z-10">
           <h1 className="text-2xl font-bold text-sky-950">{profileUser.displayName}</h1>
           <p className="text-sm text-sky-700 mt-1">
-            Joined {profileUser.createdAt?.toDate ? formatDistanceToNow(profileUser.createdAt.toDate(), { addSuffix: true }) : 'recently'}
+            {profileUser.isOnline ? 'Online' : profileUser.lastSeen ? `Last seen ${formatDistanceToNow(profileUser.lastSeen.toDate(), { addSuffix: true })}` : `Joined ${profileUser.createdAt?.toDate ? formatDistanceToNow(profileUser.createdAt.toDate(), { addSuffix: true }) : 'recently'}`}
           </p>
         </div>
         {profileUser.bio && (
@@ -110,8 +119,19 @@ export function Profile() {
           )}
         </div>
 
-        <div className="flex gap-4 text-sm text-sky-800 font-medium pt-4 relative z-10">
+        <div className="flex gap-4 text-sm text-sky-800 font-medium pt-4 relative z-10 items-center">
           <div className="bg-sky-50 px-4 py-2 rounded-lg border border-sky-100"><span className="text-sky-900 font-bold">{userPosts.length}</span> Lessons Shared</div>
+          {user && user.uid !== userId && (
+            <Button 
+              onClick={() => navigate(`/chat/${userId}`)} 
+              className="bg-sky-500 hover:bg-sky-600 text-white"
+              disabled={!isProfileComplete}
+              title={!isProfileComplete ? "Complete your profile to send messages" : ""}
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Message
+            </Button>
+          )}
         </div>
       </div>
 

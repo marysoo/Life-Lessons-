@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
@@ -10,10 +10,10 @@ import { Input } from '../components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card';
 import { moderatePost } from '../services/geminiService';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrorHandler';
-import { ImagePlus, X, Film } from 'lucide-react';
+import { ImagePlus, X, Film, AlertCircle } from 'lucide-react';
 
 export function CreatePost() {
-  const { user, isBlocked } = useAuth();
+  const { user, isBlocked, isProfileComplete } = useAuth();
   const navigate = useNavigate();
   const [content, setContent] = useState('');
   const [tagsInput, setTagsInput] = useState('');
@@ -50,7 +50,7 @@ export function CreatePost() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || isBlocked) return;
+    if (!user || isBlocked || !isProfileComplete) return;
     if (content.trim().length < 20) {
       setError('Please share a bit more detail. A good lesson is usually more than a few words.');
       return;
@@ -132,6 +132,21 @@ export function CreatePost() {
       <div className="max-w-2xl mx-auto text-center py-12 bg-white rounded-xl border border-red-200 shadow-sm">
         <h2 className="text-xl font-bold text-red-600 mb-2">Account Blocked</h2>
         <p className="text-slate-600">Your account has been blocked by an administrator. You cannot share new lessons.</p>
+      </div>
+    );
+  }
+
+  if (!isProfileComplete) {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-12 bg-white rounded-xl border border-orange-200 shadow-sm">
+        <AlertCircle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Complete Your Profile</h2>
+        <p className="text-slate-600 mb-6">You need to complete your profile before you can share a lesson.</p>
+        <Link to="/settings">
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white">
+            Go to Settings
+          </Button>
+        </Link>
       </div>
     );
   }

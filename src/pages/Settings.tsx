@@ -86,6 +86,16 @@ export function Settings() {
       const publicRef = doc(db, 'public_profiles', user.uid);
 
       const ageNum = formData.age ? parseInt(formData.age, 10) : null;
+      
+      // Check if profile is complete
+      const isComplete = Boolean(
+        formData.displayName && 
+        formData.bio && 
+        formData.city && 
+        formData.country && 
+        formData.sex && 
+        ageNum !== null
+      );
 
       // Update private data
       const privateData: any = {
@@ -99,6 +109,7 @@ export function Settings() {
         hidePhoneNumber: formData.hidePhoneNumber,
         hideCountry: formData.hideCountry,
         hideAge: formData.hideAge,
+        isProfileComplete: isComplete
       };
       if (ageNum !== null) privateData.age = ageNum;
 
@@ -110,6 +121,7 @@ export function Settings() {
         bio: formData.bio,
         city: formData.city,
         sex: formData.sex,
+        isProfileComplete: isComplete
       };
 
       if (!formData.hidePhoneNumber && formData.phoneNumber) {
@@ -132,6 +144,10 @@ export function Settings() {
 
       await updateDoc(publicRef, publicData);
       setSuccess('Profile updated successfully!');
+      
+      if (!isComplete) {
+        setError('Please fill in Bio, City, Country, Sex, and Age to complete your profile.');
+      }
     } catch (err: any) {
       console.error("Error updating profile:", err);
       setError(err.message || "Failed to update profile.");
@@ -154,26 +170,27 @@ export function Settings() {
           <h2 className="text-lg font-semibold text-slate-800 border-b pb-2">Basic Information</h2>
           
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Display Name</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Display Name *</label>
             <Input name="displayName" value={formData.displayName} onChange={handleChange} required />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Bio</label>
-            <Textarea name="bio" value={formData.bio} onChange={handleChange} rows={3} placeholder="Tell us about yourself..." />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Bio *</label>
+            <Textarea name="bio" value={formData.bio} onChange={handleChange} rows={3} placeholder="Tell us about yourself..." required />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
-              <Input name="city" value={formData.city} onChange={handleChange} />
+              <label className="block text-sm font-medium text-slate-700 mb-1">City *</label>
+              <Input name="city" value={formData.city} onChange={handleChange} required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Sex</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Sex *</label>
               <select 
                 name="sex" 
                 value={formData.sex} 
                 onChange={handleChange}
+                required
                 className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="">Select...</option>
@@ -208,8 +225,8 @@ export function Settings() {
 
           <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Country / Nationality</label>
-              <Input name="country" value={formData.country} onChange={handleChange} />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Country / Nationality *</label>
+              <Input name="country" value={formData.country} onChange={handleChange} required />
             </div>
             <div className="pt-7 flex items-center gap-2">
               <input type="checkbox" id="hideCountry" name="hideCountry" checked={formData.hideCountry} onChange={handleChange} className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500" />
@@ -219,8 +236,8 @@ export function Settings() {
 
           <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Age</label>
-              <Input name="age" type="number" min="13" max="120" value={formData.age} onChange={handleChange} />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Age *</label>
+              <Input name="age" type="number" min="13" max="120" value={formData.age} onChange={handleChange} required />
             </div>
             <div className="pt-7 flex items-center gap-2">
               <input type="checkbox" id="hideAge" name="hideAge" checked={formData.hideAge} onChange={handleChange} className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500" />
