@@ -1,0 +1,224 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.authorId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users_private/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.email == "tersooaker@gmail.com");
+    }
+
+    function isNotBlocked() {
+      return !exists(/databases/$(database)/documents/users_private/$(request.auth.uid)) ||
+             get(/databases/$(database)/documents/users_private/$(request.auth.uid)).data.isBlocked != true;
+    }
+    
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    
+    function isValidPrivateUser(data) {
+      return hasOnlyAllowedFields(['uid', 'email', 'phoneNumber', 'displayName', 'photoURL', 'bio', 'country', 'city', 'sex', 'age', 'hidePhoneNumber', 'hideCountry', 'hideAge', 'role', 'isBlocked', 'tokens', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             (!('email' in data) || data.email is string) &&
+             (!('phoneNumber' in data) || data.phoneNumber is string) &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('photoURL' in data) || data.photoURL is string) &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() <= 500)) &&
+             (!('country' in data) || data.country is string) &&
+             (!('city' in data) || data.city is string) &&
+             (!('sex' in data) || data.sex is string) &&
+             (!('age' in data) || data.age is number) &&
+             (!('hidePhoneNumber' in data) || data.hidePhoneNumber is bool) &&
+             (!('hideCountry' in data) || data.hideCountry is bool) &&
+             (!('hideAge' in data) || data.hideAge is bool) &&
+             (!('role' in data) || data.role in ['user', 'admin']) &&
+             (!('isBlocked' in data) || data.isBlocked is bool) &&
+             (!('tokens' in data) || data.tokens is number) &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidPublicProfile(data) {
+      return hasOnlyAllowedFields(['uid', 'displayName', 'photoURL', 'bio', 'city', 'sex', 'country', 'phoneNumber', 'age', 'role', 'isBlocked', 'tokens', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 100 &&
+             (!('photoURL' in data) || data.photoURL is string) &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() <= 500)) &&
+             (!('city' in data) || data.city is string) &&
+             (!('sex' in data) || data.sex is string) &&
+             (!('country' in data) || data.country is string) &&
+             (!('phoneNumber' in data) || data.phoneNumber is string) &&
+             (!('age' in data) || data.age is number) &&
+             (!('role' in data) || data.role in ['user', 'admin']) &&
+             (!('isBlocked' in data) || data.isBlocked is bool) &&
+             (!('tokens' in data) || data.tokens is number) &&
+             data.createdAt is timestamp;
+    }
+    
+    function isValidPost(data) {
+      return hasOnlyAllowedFields(['authorId', 'authorName', 'authorPhoto', 'content', 'mediaUrl', 'mediaType', 'tags', 'likesCount', 'commentsCount', 'createdAt', 'isAIModerated']) &&
+             data.authorId == request.auth.uid &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() <= 100 &&
+             (!('authorPhoto' in data) || data.authorPhoto is string) &&
+             data.content is string && data.content.size() > 0 && data.content.size() <= 5000 &&
+             (!('mediaUrl' in data) || data.mediaUrl is string) &&
+             (!('mediaType' in data) || data.mediaType is string) &&
+             data.tags is list && data.tags.size() <= 10 &&
+             data.likesCount is number && data.likesCount >= 0 &&
+             data.commentsCount is number && data.commentsCount >= 0 &&
+             data.createdAt is timestamp &&
+             data.isAIModerated is bool;
+    }
+    
+    function isValidComment(data) {
+      return hasOnlyAllowedFields(['postId', 'authorId', 'authorName', 'authorPhoto', 'content', 'createdAt']) &&
+             data.authorId == request.auth.uid &&
+             data.postId is string && data.postId.size() > 0 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() <= 100 &&
+             (!('authorPhoto' in data) || data.authorPhoto is string) &&
+             data.content is string && data.content.size() > 0 && data.content.size() <= 1000 &&
+             data.createdAt is timestamp;
+    }
+    
+    function isValidLike(data) {
+      return hasOnlyAllowedFields(['userId', 'postId', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.postId is string && data.postId.size() > 0 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidAd(data) {
+      return hasOnlyAllowedFields(['userId', 'title', 'description', 'imageUrl', 'linkUrl', 'status', 'isActive', 'createdAt']) &&
+             data.userId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.description is string && data.description.size() > 0 && data.description.size() <= 500 &&
+             (!('imageUrl' in data) || data.imageUrl is string) &&
+             (!('linkUrl' in data) || data.linkUrl is string) &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.isActive is bool &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidAdminMessage(data) {
+      return hasOnlyAllowedFields(['userId', 'subject', 'content', 'createdAt', 'isRead']) &&
+             data.userId is string &&
+             data.subject is string && data.subject.size() > 0 &&
+             data.content is string && data.content.size() > 0 &&
+             data.isRead is bool &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users_private/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidPrivateUser(request.resource.data) && 
+                    (request.resource.data.role == 'user' || isAdmin()) && 
+                    (request.resource.data.isBlocked == false || isAdmin());
+      allow update: if (isOwner(userId) && isValidPrivateUser(request.resource.data) &&
+                    request.resource.data.createdAt == resource.data.createdAt &&
+                    request.resource.data.uid == resource.data.uid &&
+                    request.resource.data.role == resource.data.role &&
+                    request.resource.data.isBlocked == resource.data.isBlocked) || 
+                    (isAdmin() && isValidPrivateUser(request.resource.data));
+    }
+
+    match /public_profiles/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId) && isValidPublicProfile(request.resource.data) && 
+                    (request.resource.data.role == 'user' || isAdmin()) && 
+                    (request.resource.data.isBlocked == false || isAdmin());
+      allow update: if (isOwner(userId) && isValidPublicProfile(request.resource.data) &&
+                    request.resource.data.createdAt == resource.data.createdAt &&
+                    request.resource.data.uid == resource.data.uid &&
+                    request.resource.data.role == resource.data.role &&
+                    request.resource.data.isBlocked == resource.data.isBlocked) || 
+                    (isAdmin() && isValidPublicProfile(request.resource.data));
+    }
+
+    match /users/{userId} {
+      allow read: if true; // Legacy support
+      allow write: if isOwner(userId);
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isNotBlocked() && isValidPost(request.resource.data) &&
+                    request.resource.data.likesCount == 0 &&
+                    request.resource.data.commentsCount == 0;
+      allow update: if isAuthenticated() && isNotBlocked() && (
+                      // Owner can update content/tags
+                      (isDocOwner() && isValidPost(request.resource.data) &&
+                       request.resource.data.createdAt == resource.data.createdAt &&
+                       request.resource.data.likesCount == resource.data.likesCount &&
+                       request.resource.data.commentsCount == resource.data.commentsCount) ||
+                      // Anyone can increment/decrement likesCount or commentsCount safely
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount']) &&
+                       math.abs(request.resource.data.likesCount - resource.data.likesCount) == 1) ||
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentsCount']) &&
+                       math.abs(request.resource.data.commentsCount - resource.data.commentsCount) == 1)
+                    );
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isNotBlocked() && isValidComment(request.resource.data);
+      allow update: if isAuthenticated() && isNotBlocked() && request.auth.uid == resource.data.authorId && 
+                    isValidComment(request.resource.data) &&
+                    request.resource.data.createdAt == resource.data.createdAt &&
+                    request.resource.data.postId == resource.data.postId;
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.authorId || isAdmin());
+    }
+
+    match /likes/{likeId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isNotBlocked() && isValidLike(request.resource.data) &&
+                    likeId == request.auth.uid + '_' + request.resource.data.postId;
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    match /ads/{adId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isNotBlocked() && request.resource.data.userId == request.auth.uid && isValidAd(request.resource.data) && request.resource.data.status == 'pending';
+      allow update: if isAdmin() || 
+                    (isAuthenticated() && isNotBlocked() && resource.data.userId == request.auth.uid && isValidAd(request.resource.data) && 
+                     request.resource.data.status == resource.data.status && 
+                     request.resource.data.userId == resource.data.userId &&
+                     request.resource.data.createdAt == resource.data.createdAt);
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    match /admin_messages/{messageId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.userId == 'all' || isAdmin());
+      allow create: if isAdmin() && isValidAdminMessage(request.resource.data);
+      allow update: if isAdmin() || 
+                    (isAuthenticated() && resource.data.userId == request.auth.uid && 
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']) &&
+                     request.resource.data.isRead is bool);
+      allow delete: if isAdmin();
+    }
+  }
+}
