@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Send, ArrowLeft, User as UserIcon, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { AdDisplay } from '../components/AdDisplay';
 
 export function Chat() {
   const { userId: otherUserId } = useParams();
@@ -310,6 +311,9 @@ export function Chat() {
                   <Send className="w-4 h-4" />
                 </Button>
               </form>
+              <div className="mt-4">
+                <AdDisplay />
+              </div>
             </div>
           </>
         ) : (

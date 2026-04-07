@@ -9,11 +9,11 @@ import { Badge } from '../components/ui/badge';
 import { Heart, MessageCircle, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrorHandler';
+import { AdDisplay } from '../components/AdDisplay';
 
 export function Home() {
   const { profileData } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
-  const [ads, setAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
@@ -32,39 +32,10 @@ export function Home() {
       setLoading(false);
     });
 
-    const qAds = query(collection(db, 'ads'), where('status', '==', 'approved'), where('isActive', '==', true));
-    const unsubAds = onSnapshot(qAds, (snapshot) => {
-      const allAds = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      setAds(allAds);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'ads');
-    });
-
     return () => {
       unsubscribe();
-      unsubAds();
     };
   }, []);
-
-  // Filter ads based on user profile data
-  const filteredAds = ads.filter(ad => {
-    if (!profileData) return true; // If not logged in or no profile, show all ads
-
-    // Check Age
-    if (ad.targetAgeMin && profileData.age && profileData.age < ad.targetAgeMin) return false;
-    if (ad.targetAgeMax && profileData.age && profileData.age > ad.targetAgeMax) return false;
-
-    // Check Country
-    if (ad.targetCountry && profileData.country && ad.targetCountry.toLowerCase() !== profileData.country.toLowerCase()) return false;
-
-    // Check City
-    if (ad.targetCity && profileData.city && ad.targetCity.toLowerCase() !== profileData.city.toLowerCase()) return false;
-
-    // Check Category Preference
-    if (ad.targetCategory && profileData.adCategoryPreference && ad.targetCategory !== profileData.adCategoryPreference) return false;
-
-    return true;
-  });
 
   const filteredPosts = selectedTag 
     ? posts.filter(post => post.tags && post.tags.includes(selectedTag))
@@ -99,9 +70,10 @@ export function Home() {
             {selectedTag ? `No lessons found with tag #${selectedTag}.` : 'No lessons shared yet. Be the first to share your experience!'}
           </div>
         ) : (
-          filteredPosts.map(post => (
-            <Card key={post.id} className="overflow-hidden transition-all hover:shadow-md border-sky-100 mb-6">
-              <CardHeader className="pb-4">
+          filteredPosts.map((post, index) => (
+            <div key={post.id}>
+              <Card className="overflow-hidden transition-all hover:shadow-md border-sky-100 mb-6">
+                <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <Link to={`/profile/${post.authorId}`} className="flex items-center gap-3 group">
                     <Avatar className="ring-2 ring-sky-50">
@@ -159,6 +131,14 @@ export function Home() {
                 </div>
               </CardFooter>
             </Card>
+            
+            {/* Insert Ad every 3 posts */}
+            {(index + 1) % 3 === 0 && (
+              <div className="mb-6">
+                <AdDisplay />
+              </div>
+            )}
+            </div>
           ))
         )}
       </div>
@@ -175,18 +155,11 @@ export function Home() {
             </CardContent>
           </Card>
 
-          {filteredAds.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sponsored</h3>
-              {filteredAds.map(ad => (
-                <a key={ad.id} href={ad.linkUrl} target="_blank" rel="noopener noreferrer" className="block bg-white p-4 rounded-xl border border-sky-100 shadow-sm hover:shadow-md transition-shadow group">
-                  {ad.imageUrl && <img src={ad.imageUrl} alt={ad.title} className="w-full h-32 object-cover rounded-lg mb-3" />}
-                  <h4 className="font-bold text-sky-950 text-sm group-hover:text-orange-600 transition-colors">{ad.title}</h4>
-                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">{ad.description}</p>
-                </a>
-              ))}
-            </div>
-          )}
+          {/* Sidebar Ad */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sponsored</h3>
+            <AdDisplay />
+          </div>
         </div>
       </div>
     </div>

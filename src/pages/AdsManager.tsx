@@ -22,6 +22,7 @@ export function AdsManager() {
   const [targetCountry, setTargetCountry] = useState('');
   const [targetCity, setTargetCity] = useState('');
   const [targetCategory, setTargetCategory] = useState('');
+  const [durationDays, setDurationDays] = useState('1');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBuyingTokens, setIsBuyingTokens] = useState(false);
 
@@ -64,8 +65,16 @@ export function AdsManager() {
     e.preventDefault();
     if (!user || isBlocked || !isProfileComplete) return;
     
-    if (tokens < 50) {
-      alert('Insufficient tokens. You need 50 tokens to submit an ad.');
+    const days = parseInt(durationDays, 10);
+    if (isNaN(days) || days < 1) {
+      alert('Please select a valid duration.');
+      return;
+    }
+
+    const cost = days * 50;
+
+    if (tokens < cost) {
+      alert(`Insufficient tokens. You need ${cost} tokens to submit this ad for ${days} days.`);
       return;
     }
 
@@ -79,15 +88,18 @@ export function AdsManager() {
         if (!privateDoc.exists()) throw new Error("User document does not exist!");
         
         const currentTokens = privateDoc.data().tokens || 0;
-        if (currentTokens < 50) throw new Error("Insufficient tokens!");
+        if (currentTokens < cost) throw new Error("Insufficient tokens!");
 
         // Deduct tokens
-        transaction.update(privateUserRef, { tokens: currentTokens - 50 });
-        transaction.update(publicProfileRef, { tokens: currentTokens - 50 });
+        transaction.update(privateUserRef, { tokens: currentTokens - cost });
+        transaction.update(publicProfileRef, { tokens: currentTokens - cost });
 
         // Create Ad
         const newAdRef = doc(collection(db, 'ads'));
         
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + days);
+
         const adData: any = {
           userId: user.uid,
           title,
@@ -96,6 +108,8 @@ export function AdsManager() {
           imageUrl,
           status: 'pending', // Requires admin approval
           isActive: true,
+          durationDays: days,
+          expiresAt: expiresAt,
           createdAt: serverTimestamp()
         };
 
@@ -117,7 +131,8 @@ export function AdsManager() {
       setTargetCountry('');
       setTargetCity('');
       setTargetCategory('');
-      alert('Ad submitted for review! 50 tokens have been deducted.');
+      setDurationDays('1');
+      alert(`Ad submitted for review! ${cost} tokens have been deducted.`);
     } catch (error: any) {
       console.error(error);
       alert(error.message || 'Failed to submit ad.');
@@ -192,7 +207,7 @@ export function AdsManager() {
             </div>
             
             <div className="pt-4 border-t border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900 mb-3">Targeting (Optional)</h3>
+              <h3 className="text-sm font-bold text-slate-900 mb-3">Targeting & Duration</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -228,11 +243,25 @@ export function AdsManager() {
                   <label className="block text-xs font-medium text-slate-700 mb-1">Target City</label>
                   <Input value={targetCity} onChange={e => setTargetCity(e.target.value)} placeholder="e.g. New York" />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Duration (Days)</label>
+                  <select 
+                    value={durationDays} 
+                    onChange={e => setDurationDays(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+                  >
+                    <option value="1">1 Day (50 Tokens)</option>
+                    <option value="3">3 Days (150 Tokens)</option>
+                    <option value="7">7 Days (350 Tokens)</option>
+                    <option value="14">14 Days (700 Tokens)</option>
+                    <option value="30">30 Days (1500 Tokens)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <Button type="submit" disabled={isSubmitting || tokens < 50} className="bg-orange-500 hover:bg-orange-600 text-white w-full mt-4">
-              {isSubmitting ? 'Processing...' : 'Pay 50 Tokens & Submit Ad'}
+            <Button type="submit" disabled={isSubmitting || tokens < parseInt(durationDays) * 50} className="bg-orange-500 hover:bg-orange-600 text-white w-full mt-4">
+              {isSubmitting ? 'Processing...' : `Pay ${parseInt(durationDays) * 50} Tokens & Submit Ad`}
             </Button>
             {tokens < 50 && (
               <p className="text-sm text-red-500 mt-2">You need at least 50 tokens to submit an ad.</p>

@@ -13,6 +13,7 @@ import { Heart, MessageCircle, AlertCircle, Edit, Link as LinkIcon } from 'lucid
 import { formatDistanceToNow } from 'date-fns';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrorHandler';
 import { moderatePost } from '../services/geminiService';
+import { AdDisplay } from '../components/AdDisplay';
 
 export function PostDetail() {
   const { postId } = useParams<{ postId: string }>();
@@ -359,6 +360,10 @@ export function PostDetail() {
           </div>
         </CardFooter>
       </Card>
+
+      <div className="my-6">
+        <AdDisplay />
+      </div>
 
       <div className="space-y-6">
         <h3 className="text-xl font-semibold text-sky-950">Reflections & Comments</h3>

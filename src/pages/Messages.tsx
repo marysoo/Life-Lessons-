@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
+import { AdDisplay } from '../components/AdDisplay';
 
 export function Messages() {
   const { user } = useAuth();
@@ -83,6 +84,10 @@ export function Messages() {
           ))}
         </div>
       )}
+      
+      <div className="mt-8">
+        <AdDisplay />
+      </div>
     </div>
   );
 }

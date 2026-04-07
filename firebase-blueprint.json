@@ -118,9 +118,11 @@
         "targetCountry": { "type": "string" },
         "targetCity": { "type": "string" },
         "targetCategory": { "type": "string" },
+        "durationDays": { "type": "number" },
+        "expiresAt": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["userId", "title", "description", "status", "isActive", "createdAt"]
+      "required": ["userId", "title", "description", "status", "isActive", "durationDays", "expiresAt", "createdAt"]
     },
     "AdminMessage": {
       "title": "AdminMessage",

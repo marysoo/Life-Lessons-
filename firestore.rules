@@ -121,7 +121,7 @@ service cloud.firestore {
     }
 
     function isValidAd(data) {
-      return hasOnlyAllowedFields(['userId', 'title', 'description', 'imageUrl', 'linkUrl', 'status', 'isActive', 'targetAgeMin', 'targetAgeMax', 'targetCountry', 'targetCity', 'targetCategory', 'createdAt']) &&
+      return hasOnlyAllowedFields(['userId', 'title', 'description', 'imageUrl', 'linkUrl', 'status', 'isActive', 'targetAgeMin', 'targetAgeMax', 'targetCountry', 'targetCity', 'targetCategory', 'durationDays', 'expiresAt', 'createdAt']) &&
              data.userId is string &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
              data.description is string && data.description.size() > 0 && data.description.size() <= 500 &&
@@ -132,6 +132,8 @@ service cloud.firestore {
              (!('targetCountry' in data) || data.targetCountry is string) &&
              (!('targetCity' in data) || data.targetCity is string) &&
              (!('targetCategory' in data) || data.targetCategory is string) &&
+             data.durationDays is number && data.durationDays > 0 &&
+             data.expiresAt is timestamp &&
              data.status in ['pending', 'approved', 'rejected'] &&
              data.isActive is bool &&
              data.createdAt is timestamp;
