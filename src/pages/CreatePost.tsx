@@ -1,8 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
@@ -10,43 +9,17 @@ import { Input } from '../components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card';
 import { moderatePost } from '../services/geminiService';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrorHandler';
-import { ImagePlus, X, Film, AlertCircle } from 'lucide-react';
+import { AlertCircle, Link as LinkIcon } from 'lucide-react';
 
 export function CreatePost() {
-  const { user, isBlocked, isProfileComplete } = useAuth();
+  const { user, isBlocked, isProfileComplete, profileData } = useAuth();
   const navigate = useNavigate();
   const [content, setContent] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      setError('File size must be less than 10MB.');
-      return;
-    }
-
-    setMediaFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setMediaPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const clearMedia = () => {
-    setMediaFile(null);
-    setMediaPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  const [mediaUrlInput, setMediaUrlInput] = useState('');
+  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,36 +42,20 @@ export function CreatePost() {
         return;
       }
 
-      // 2. Upload Media if exists
-      let mediaUrl = null;
-      let mediaType = null;
-      
-      if (mediaFile) {
-        try {
-          const fileRef = ref(storage, `posts/${user.uid}/${Date.now()}_${mediaFile.name}`);
-          const uploadResult = await uploadBytes(fileRef, mediaFile);
-          mediaUrl = await getDownloadURL(uploadResult.ref);
-          mediaType = mediaFile.type.startsWith('video/') ? 'video' : 'image';
-        } catch (uploadError: any) {
-          console.error("Upload error:", uploadError);
-          if (uploadError.code === 'storage/unauthorized') {
-            setError('Storage is not configured or you do not have permission. Please enable Firebase Storage in your console.');
-          } else {
-            setError('Failed to upload media. Please try again.');
-          }
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      // 3. Parse tags
+      // 2. Parse tags
       const tags = tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0).slice(0, 5);
+
+      // 3. Determine Author Name based on privacy settings
+      let authorName = profileData?.displayName || user.displayName || 'Anonymous';
+      if (profileData && !profileData.hideRealName && profileData.realName) {
+        authorName = profileData.realName;
+      }
 
       // 4. Save to Firestore
       const postData: any = {
         authorId: user.uid,
-        authorName: user.displayName || 'Anonymous',
-        authorPhoto: user.photoURL || '',
+        authorName: authorName,
+        authorPhoto: profileData?.photoURL || user.photoURL || '',
         content: content.trim(),
         tags,
         likesCount: 0,
@@ -107,9 +64,9 @@ export function CreatePost() {
         isAIModerated: true
       };
 
-      if (mediaUrl && mediaType) {
-        postData.mediaUrl = mediaUrl;
-        postData.mediaType = mediaType;
+      if (mediaUrlInput.trim()) {
+        postData.mediaUrl = mediaUrlInput.trim();
+        postData.mediaType = mediaType || 'image'; // Default to image if not explicitly set to video
       }
 
       await addDoc(collection(db, 'posts'), postData);
@@ -178,44 +135,34 @@ export function CreatePost() {
               />
             </div>
             
-            {/* Media Upload Section */}
+            {/* Media URL Section */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900">Add Photo or Video (Optional)</label>
-              
-              {!mediaPreview ? (
-                <div className="flex gap-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="gap-2"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <ImagePlus className="w-4 h-4" />
-                    <Film className="w-4 h-4" />
-                    Upload Media
-                  </Button>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="image/*,video/*" 
-                    onChange={handleFileChange}
+              <label className="text-sm font-medium text-slate-900">Add Photo or Video URL (Optional)</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <LinkIcon className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <Input 
+                    type="url" 
+                    placeholder="https://example.com/image.jpg" 
+                    className="pl-10"
+                    value={mediaUrlInput}
+                    onChange={(e) => setMediaUrlInput(e.target.value)}
                   />
                 </div>
-              ) : (
-                <div className="relative inline-block border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
-                  <button 
-                    type="button"
-                    onClick={clearMedia}
-                    className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70 z-10"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                  {mediaFile?.type.startsWith('video/') ? (
-                    <video src={mediaPreview} className="max-h-[300px] max-w-full object-contain" controls />
-                  ) : (
-                    <img src={mediaPreview} alt="Preview" className="max-h-[300px] max-w-full object-contain" />
-                  )}
+                <select 
+                  className="h-10 rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  value={mediaType || 'image'}
+                  onChange={(e) => setMediaType(e.target.value as 'image' | 'video')}
+                >
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                </select>
+              </div>
+              {mediaUrlInput && mediaType === 'image' && (
+                <div className="mt-2 relative inline-block border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+                  <img src={mediaUrlInput} alt="Preview" className="max-h-[200px] max-w-full object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
                 </div>
               )}
             </div>

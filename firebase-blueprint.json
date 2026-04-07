@@ -9,6 +9,7 @@
         "email": { "type": "string" },
         "phoneNumber": { "type": "string" },
         "displayName": { "type": "string" },
+        "realName": { "type": "string" },
         "photoURL": { "type": "string" },
         "bio": { "type": "string" },
         "country": { "type": "string" },
@@ -18,6 +19,7 @@
         "hidePhoneNumber": { "type": "boolean" },
         "hideCountry": { "type": "boolean" },
         "hideAge": { "type": "boolean" },
+        "hideRealName": { "type": "boolean" },
         "role": { "type": "string", "enum": ["user", "admin"] },
         "isBlocked": { "type": "boolean" },
         "tokens": { "type": "number" },
@@ -36,6 +38,7 @@
       "properties": {
         "uid": { "type": "string" },
         "displayName": { "type": "string" },
+        "realName": { "type": "string" },
         "photoURL": { "type": "string" },
         "bio": { "type": "string" },
         "city": { "type": "string" },
@@ -68,6 +71,7 @@
         "likesCount": { "type": "number" },
         "commentsCount": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" },
+        "lastModifiedAt": { "type": "string", "format": "date-time" },
         "isAIModerated": { "type": "boolean" }
       },
       "required": ["authorId", "authorName", "content", "likesCount", "commentsCount", "createdAt", "isAIModerated"]

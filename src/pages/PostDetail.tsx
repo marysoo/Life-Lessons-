@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, runTransaction, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardHeader, CardContent, CardFooter } from '../components/ui/card';
@@ -8,19 +8,30 @@ import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
-import { Heart, MessageCircle, AlertCircle } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { Heart, MessageCircle, AlertCircle, Edit, Link as LinkIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrorHandler';
+import { moderatePost } from '../services/geminiService';
 
 export function PostDetail() {
   const { postId } = useParams<{ postId: string }>();
-  const { user, isBlocked, isProfileComplete } = useAuth();
+  const { user, isBlocked, isProfileComplete, profileData } = useAuth();
   const [post, setPost] = useState<any>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isLiked, setIsLiked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submittingComment, setSubmittingComment] = useState(false);
+
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [editTagsInput, setEditTagsInput] = useState('');
+  const [editMediaUrl, setEditMediaUrl] = useState('');
+  const [editMediaType, setEditMediaType] = useState<'image' | 'video' | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
 
   useEffect(() => {
     if (!postId) return;
@@ -31,7 +42,12 @@ export function PostDetail() {
         const docRef = doc(db, 'posts', postId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setPost({ id: docSnap.id, ...docSnap.data() });
+          const data = docSnap.data();
+          setPost({ id: docSnap.id, ...data });
+          setEditContent(data.content || '');
+          setEditTagsInput((data.tags || []).join(', '));
+          setEditMediaUrl(data.mediaUrl || '');
+          setEditMediaType(data.mediaType || 'image');
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.GET, `posts/${postId}`);
@@ -115,12 +131,17 @@ export function PostDetail() {
         const postDoc = await transaction.get(postRef);
         if (!postDoc.exists()) throw new Error("Post does not exist!");
 
+        let authorName = profileData?.displayName || user.displayName || 'Anonymous';
+        if (profileData && !profileData.hideRealName && profileData.realName) {
+          authorName = profileData.realName;
+        }
+
         const newCommentRef = doc(collection(db, 'comments'));
         transaction.set(newCommentRef, {
           postId,
           authorId: user.uid,
-          authorName: user.displayName || 'Anonymous',
-          authorPhoto: user.photoURL || '',
+          authorName: authorName,
+          authorPhoto: profileData?.photoURL || user.photoURL || '',
           content: newComment.trim(),
           createdAt: serverTimestamp()
         });
@@ -136,9 +157,62 @@ export function PostDetail() {
     }
   };
 
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !postId || isBlocked) return;
+    if (editContent.trim().length < 20) {
+      setEditError('Please share a bit more detail. A good lesson is usually more than a few words.');
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setEditError('');
+
+    try {
+      // AI Moderation Check
+      const moderationResult = await moderatePost(editContent);
+      
+      if (!moderationResult.isGenuine) {
+        setEditError(`Your edit was flagged by our moderation system: ${moderationResult.reason}. Please ensure you are sharing a genuine life experience.`);
+        setIsSavingEdit(false);
+        return;
+      }
+
+      const tags = editTagsInput.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0).slice(0, 5);
+
+      const updateData: any = {
+        content: editContent.trim(),
+        tags,
+        lastModifiedAt: serverTimestamp(),
+        isAIModerated: true
+      };
+
+      if (editMediaUrl.trim()) {
+        updateData.mediaUrl = editMediaUrl.trim();
+        updateData.mediaType = editMediaType || 'image';
+      } else {
+        updateData.mediaUrl = null;
+        updateData.mediaType = null;
+      }
+
+      const postRef = doc(db, 'posts', postId);
+      await updateDoc(postRef, updateData);
+
+      setPost({ ...post, ...updateData, lastModifiedAt: new Date() }); // Optimistic update
+      setIsEditing(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `posts/${postId}`);
+      setEditError('Failed to save edits. Please try again.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   if (loading || !post) {
     return <div className="flex justify-center py-12"><div className="animate-pulse text-slate-500">Loading lesson...</div></div>;
   }
+
+  const isAuthor = user && user.uid === post.authorId;
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -152,37 +226,117 @@ export function PostDetail() {
               </Avatar>
               <div>
                 <p className="text-base font-semibold text-sky-950 group-hover:underline">{post.authorName}</p>
-                <p className="text-sm text-slate-500">
-                  {post.createdAt?.toDate ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
-                </p>
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <span>{post.createdAt?.toDate ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) : 'Just now'}</span>
+                  {post.lastModifiedAt && (
+                    <span className="text-xs italic text-slate-400">(edited)</span>
+                  )}
+                </div>
               </div>
             </Link>
-            {post.isAIModerated && (
-              <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
-                Verified Genuine
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {post.isAIModerated && (
+                <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
+                  Verified Genuine
+                </Badge>
+              )}
+              {isAuthor && !isEditing && (
+                <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="text-sky-600 hover:text-sky-700 hover:bg-sky-50">
+                  <Edit className="w-4 h-4 mr-1" /> Edit
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-slate-800 text-lg leading-relaxed whitespace-pre-wrap">{post.content}</p>
-          
-          {post.mediaUrl && (
-            <div className="mt-6 rounded-xl overflow-hidden border border-sky-100 bg-sky-50">
-              {post.mediaType === 'video' ? (
-                <video src={post.mediaUrl} className="max-h-[600px] w-full object-contain" controls />
-              ) : (
-                <img src={post.mediaUrl} alt="Lesson media" className="max-h-[600px] w-full object-contain" />
+          {isEditing ? (
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              {editError && (
+                <div className="p-3 bg-red-50 text-red-700 text-sm rounded-md border border-red-200">
+                  {editError}
+                </div>
               )}
-            </div>
-          )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-900">Your Story & Lesson</label>
+                <Textarea 
+                  className="min-h-[200px] resize-y"
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-900">Photo or Video URL (Optional)</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <LinkIcon className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <Input 
+                      type="url" 
+                      placeholder="https://example.com/image.jpg" 
+                      className="pl-10"
+                      value={editMediaUrl}
+                      onChange={(e) => setEditMediaUrl(e.target.value)}
+                    />
+                  </div>
+                  <select 
+                    className="h-10 rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                    value={editMediaType || 'image'}
+                    onChange={(e) => setEditMediaType(e.target.value as 'image' | 'video')}
+                  >
+                    <option value="image">Image</option>
+                    <option value="video">Video</option>
+                  </select>
+                </div>
+                {editMediaUrl && editMediaType === 'image' && (
+                  <div className="mt-2 relative inline-block border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+                    <img src={editMediaUrl} alt="Preview" className="max-h-[200px] max-w-full object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                  </div>
+                )}
+              </div>
 
-          {post.tags && post.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-6">
-              {post.tags.map((tag: string) => (
-                <Badge key={tag} variant="outline" className="text-sm text-sky-700 border-sky-200 bg-sky-50">#{tag}</Badge>
-              ))}
-            </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-900">Tags (Optional)</label>
+                <Input 
+                  placeholder="resilience, career, relationships (comma separated)" 
+                  value={editTagsInput}
+                  onChange={(e) => setEditTagsInput(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setIsEditing(false)} disabled={isSavingEdit}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSavingEdit}>
+                  {isSavingEdit ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p className="text-slate-800 text-lg leading-relaxed whitespace-pre-wrap">{post.content}</p>
+              
+              {post.mediaUrl && (
+                <div className="mt-6 rounded-xl overflow-hidden border border-sky-100 bg-sky-50">
+                  {post.mediaType === 'video' ? (
+                    <video src={post.mediaUrl} className="max-h-[600px] w-full object-contain" controls />
+                  ) : (
+                    <img src={post.mediaUrl} alt="Lesson media" className="max-h-[600px] w-full object-contain" />
+                  )}
+                </div>
+              )}
+
+              {post.tags && post.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-6">
+                  {post.tags.map((tag: string) => (
+                    <Badge key={tag} variant="outline" className="text-sm text-sky-700 border-sky-200 bg-sky-50">#{tag}</Badge>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </CardContent>
         <CardFooter className="border-t border-sky-50 bg-sky-50/30 py-4">
@@ -223,7 +377,7 @@ export function PostDetail() {
           ) : (
             <form onSubmit={handleComment} className="flex gap-4">
               <Avatar className="h-10 w-10 shrink-0">
-                <AvatarImage src={user.photoURL || ''} referrerPolicy="no-referrer" />
+                <AvatarImage src={profileData?.photoURL || user.photoURL || ''} referrerPolicy="no-referrer" />
                 <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-3">

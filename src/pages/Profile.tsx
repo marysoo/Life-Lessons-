@@ -66,27 +66,56 @@ export function Profile() {
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div className="flex flex-col items-center text-center space-y-4 p-8 bg-white rounded-2xl border border-sky-100 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-sky-400 to-orange-400 opacity-20"></div>
-        <div className="relative z-10">
-          <Avatar className="h-24 w-24 border-4 border-white shadow-md">
-            <AvatarImage src={profileUser.photoURL} referrerPolicy="no-referrer" />
-            <AvatarFallback className="text-2xl bg-sky-100 text-sky-700">{profileUser.displayName?.charAt(0)}</AvatarFallback>
-          </Avatar>
-          {profileUser.isOnline && (
-            <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 border-4 border-white rounded-full"></div>
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-r from-sky-400 to-orange-400 opacity-20"></div>
+        
+        {/* Profile Photos Slideshow */}
+        {profileUser.photos && profileUser.photos.length > 0 ? (
+          <div className="relative z-10 w-full max-w-md mx-auto mb-4">
+            <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 pb-4 px-4">
+              {profileUser.photos.map((photo: string, idx: number) => (
+                <div key={idx} className="snap-center shrink-0 w-48 h-48 sm:w-64 sm:h-64 rounded-2xl overflow-hidden border-4 border-white shadow-lg">
+                  <img src={photo} alt={`${profileUser.displayName} ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="relative z-10">
+            <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
+              <AvatarImage src={profileUser.photoURL} referrerPolicy="no-referrer" />
+              <AvatarFallback className="text-4xl bg-sky-100 text-sky-700">{profileUser.displayName?.charAt(0)}</AvatarFallback>
+            </Avatar>
+            {profileUser.isOnline && (
+              <div className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></div>
+            )}
+          </div>
+        )}
+
+        <div className="relative z-10 mt-2">
+          <h1 className="text-3xl font-bold text-sky-950">
+            {profileUser.realName ? profileUser.realName : profileUser.displayName}
+          </h1>
+          {profileUser.realName && (
+            <p className="text-lg font-medium text-sky-600 mt-1">@{profileUser.displayName}</p>
           )}
-        </div>
-        <div className="relative z-10">
-          <h1 className="text-2xl font-bold text-sky-950">{profileUser.displayName}</h1>
-          <p className="text-sm text-sky-700 mt-1">
-            {profileUser.isOnline ? 'Online' : profileUser.lastSeen ? `Last seen ${formatDistanceToNow(profileUser.lastSeen.toDate(), { addSuffix: true })}` : `Joined ${profileUser.createdAt?.toDate ? formatDistanceToNow(profileUser.createdAt.toDate(), { addSuffix: true }) : 'recently'}`}
+          <p className="text-sm text-slate-500 mt-2">
+            {profileUser.isOnline ? (
+              <span className="text-green-600 font-medium flex items-center justify-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span> Online Now
+              </span>
+            ) : profileUser.lastSeen ? (
+              `Last seen ${formatDistanceToNow(profileUser.lastSeen.toDate(), { addSuffix: true })}`
+            ) : (
+              `Joined ${profileUser.createdAt?.toDate ? formatDistanceToNow(profileUser.createdAt.toDate(), { addSuffix: true }) : 'recently'}`
+            )}
           </p>
         </div>
+        
         {profileUser.bio && (
-          <p className="text-slate-700 max-w-md relative z-10">{profileUser.bio}</p>
+          <p className="text-slate-700 max-w-lg relative z-10 text-lg leading-relaxed">{profileUser.bio}</p>
         )}
         
-        <div className="flex flex-wrap justify-center gap-4 pt-4 relative z-10">
+        <div className="flex flex-wrap justify-center gap-3 pt-4 relative z-10">
           {profileUser.city && (
             <div className="flex items-center gap-1.5 text-sm text-slate-600 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
               <MapPin className="w-4 h-4 text-sky-500" />

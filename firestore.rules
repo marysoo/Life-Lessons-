@@ -38,12 +38,14 @@ service cloud.firestore {
     // ===============================================================
     
     function isValidPrivateUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'phoneNumber', 'displayName', 'photoURL', 'bio', 'country', 'city', 'sex', 'age', 'hidePhoneNumber', 'hideCountry', 'hideAge', 'role', 'isBlocked', 'tokens', 'isProfileComplete', 'isOnline', 'lastSeen', 'adCategoryPreference', 'createdAt']) &&
+      return hasOnlyAllowedFields(['uid', 'email', 'phoneNumber', 'displayName', 'realName', 'photoURL', 'photos', 'bio', 'country', 'city', 'sex', 'age', 'hidePhoneNumber', 'hideCountry', 'hideAge', 'hideRealName', 'role', 'isBlocked', 'tokens', 'isProfileComplete', 'isOnline', 'lastSeen', 'adCategoryPreference', 'createdAt']) &&
              data.uid == request.auth.uid &&
              (!('email' in data) || data.email is string) &&
              (!('phoneNumber' in data) || data.phoneNumber is string) &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('realName' in data) || (data.realName is string && data.realName.size() <= 100)) &&
              (!('photoURL' in data) || data.photoURL is string) &&
+             (!('photos' in data) || data.photos is list) &&
              (!('bio' in data) || (data.bio is string && data.bio.size() <= 500)) &&
              (!('country' in data) || data.country is string) &&
              (!('city' in data) || data.city is string) &&
@@ -52,6 +54,7 @@ service cloud.firestore {
              (!('hidePhoneNumber' in data) || data.hidePhoneNumber is bool) &&
              (!('hideCountry' in data) || data.hideCountry is bool) &&
              (!('hideAge' in data) || data.hideAge is bool) &&
+             (!('hideRealName' in data) || data.hideRealName is bool) &&
              (!('role' in data) || data.role in ['user', 'admin']) &&
              (!('isBlocked' in data) || data.isBlocked is bool) &&
              (!('tokens' in data) || data.tokens is number) &&
@@ -63,10 +66,12 @@ service cloud.firestore {
     }
 
     function isValidPublicProfile(data) {
-      return hasOnlyAllowedFields(['uid', 'displayName', 'photoURL', 'bio', 'city', 'sex', 'country', 'phoneNumber', 'age', 'role', 'isBlocked', 'tokens', 'isProfileComplete', 'isOnline', 'lastSeen', 'createdAt']) &&
+      return hasOnlyAllowedFields(['uid', 'displayName', 'realName', 'photoURL', 'photos', 'bio', 'city', 'sex', 'country', 'phoneNumber', 'age', 'role', 'isBlocked', 'tokens', 'isProfileComplete', 'isOnline', 'lastSeen', 'createdAt']) &&
              data.uid == request.auth.uid &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('realName' in data) || (data.realName is string && data.realName.size() <= 100)) &&
              (!('photoURL' in data) || data.photoURL is string) &&
+             (!('photos' in data) || data.photos is list) &&
              (!('bio' in data) || (data.bio is string && data.bio.size() <= 500)) &&
              (!('city' in data) || data.city is string) &&
              (!('sex' in data) || data.sex is string) &&
@@ -83,7 +88,7 @@ service cloud.firestore {
     }
     
     function isValidPost(data) {
-      return hasOnlyAllowedFields(['authorId', 'authorName', 'authorPhoto', 'content', 'mediaUrl', 'mediaType', 'tags', 'likesCount', 'commentsCount', 'createdAt', 'isAIModerated']) &&
+      return hasOnlyAllowedFields(['authorId', 'authorName', 'authorPhoto', 'content', 'mediaUrl', 'mediaType', 'tags', 'likesCount', 'commentsCount', 'createdAt', 'lastModifiedAt', 'isAIModerated']) &&
              data.authorId == request.auth.uid &&
              data.authorName is string && data.authorName.size() > 0 && data.authorName.size() <= 100 &&
              (!('authorPhoto' in data) || data.authorPhoto is string) &&
@@ -94,6 +99,7 @@ service cloud.firestore {
              data.likesCount is number && data.likesCount >= 0 &&
              data.commentsCount is number && data.commentsCount >= 0 &&
              data.createdAt is timestamp &&
+             (!('lastModifiedAt' in data) || data.lastModifiedAt is timestamp) &&
              data.isAIModerated is bool;
     }
     

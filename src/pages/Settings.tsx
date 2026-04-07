@@ -17,6 +17,7 @@ export function Settings() {
 
   const [formData, setFormData] = useState({
     displayName: '',
+    realName: '',
     bio: '',
     email: '',
     phoneNumber: '',
@@ -27,8 +28,12 @@ export function Settings() {
     hidePhoneNumber: false,
     hideCountry: false,
     hideAge: false,
+    hideRealName: false,
     adCategoryPreference: '',
+    photos: [] as string[],
   });
+
+  const [newPhotoUrl, setNewPhotoUrl] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -45,6 +50,7 @@ export function Settings() {
           const data = docSnap.data();
           setFormData({
             displayName: data.displayName || '',
+            realName: data.realName || '',
             bio: data.bio || '',
             email: data.email || '',
             phoneNumber: data.phoneNumber || '',
@@ -55,7 +61,9 @@ export function Settings() {
             hidePhoneNumber: data.hidePhoneNumber || false,
             hideCountry: data.hideCountry || false,
             hideAge: data.hideAge || false,
+            hideRealName: data.hideRealName || false,
             adCategoryPreference: data.adCategoryPreference || '',
+            photos: data.photos || [],
           });
         }
       } catch (err) {
@@ -73,6 +81,17 @@ export function Settings() {
     const { name, value, type } = e.target;
     const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
     setFormData(prev => ({ ...prev, [name]: val }));
+  };
+
+  const handleAddPhoto = () => {
+    if (newPhotoUrl && !formData.photos.includes(newPhotoUrl)) {
+      setFormData(prev => ({ ...prev, photos: [...prev.photos, newPhotoUrl] }));
+      setNewPhotoUrl('');
+    }
+  };
+
+  const handleRemovePhoto = (urlToRemove: string) => {
+    setFormData(prev => ({ ...prev, photos: prev.photos.filter(url => url !== urlToRemove) }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -102,6 +121,7 @@ export function Settings() {
       // Update private data
       const privateData: any = {
         displayName: formData.displayName,
+        realName: formData.realName,
         bio: formData.bio,
         email: formData.email,
         phoneNumber: formData.phoneNumber,
@@ -111,7 +131,9 @@ export function Settings() {
         hidePhoneNumber: formData.hidePhoneNumber,
         hideCountry: formData.hideCountry,
         hideAge: formData.hideAge,
+        hideRealName: formData.hideRealName,
         adCategoryPreference: formData.adCategoryPreference,
+        photos: formData.photos,
         isProfileComplete: isComplete
       };
       if (ageNum !== null) privateData.age = ageNum;
@@ -124,8 +146,15 @@ export function Settings() {
         bio: formData.bio,
         city: formData.city,
         sex: formData.sex,
+        photos: formData.photos,
         isProfileComplete: isComplete
       };
+
+      if (!formData.hideRealName && formData.realName) {
+        publicData.realName = formData.realName;
+      } else {
+        publicData.realName = deleteField();
+      }
 
       if (!formData.hidePhoneNumber && formData.phoneNumber) {
         publicData.phoneNumber = formData.phoneNumber;
@@ -173,8 +202,19 @@ export function Settings() {
           <h2 className="text-lg font-semibold text-slate-800 border-b pb-2">Basic Information</h2>
           
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Display Name *</label>
-            <Input name="displayName" value={formData.displayName} onChange={handleChange} required />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Username (Display Name) *</label>
+            <Input name="displayName" value={formData.displayName} onChange={handleChange} required placeholder="e.g., cool_user99" />
+          </div>
+
+          <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Real Name</label>
+              <Input name="realName" value={formData.realName} onChange={handleChange} placeholder="e.g., John Doe" />
+            </div>
+            <div className="pt-7 flex items-center gap-2">
+              <input type="checkbox" id="hideRealName" name="hideRealName" checked={formData.hideRealName} onChange={handleChange} className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500" />
+              <label htmlFor="hideRealName" className="text-sm text-slate-600">Hide on profile</label>
+            </div>
           </div>
 
           <div>
@@ -204,6 +244,38 @@ export function Settings() {
               </select>
             </div>
           </div>
+        </div>
+
+        <div className="space-y-4 pt-4">
+          <h2 className="text-lg font-semibold text-slate-800 border-b pb-2">Profile Photos</h2>
+          <p className="text-sm text-slate-500">Add photos to create a slideshow on your profile.</p>
+          
+          <div className="flex gap-2">
+            <Input 
+              type="url" 
+              placeholder="https://example.com/photo.jpg" 
+              value={newPhotoUrl} 
+              onChange={(e) => setNewPhotoUrl(e.target.value)} 
+            />
+            <Button type="button" onClick={handleAddPhoto} variant="secondary">Add</Button>
+          </div>
+
+          {formData.photos.length > 0 && (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 mt-4">
+              {formData.photos.map((url, idx) => (
+                <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200">
+                  <img src={url} alt={`Profile ${idx}`} className="w-full h-full object-cover" />
+                  <button 
+                    type="button" 
+                    onClick={() => handleRemovePhoto(url)}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-4 pt-4">
