@@ -17,6 +17,11 @@ export function AdsManager() {
   const [description, setDescription] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [targetAgeMin, setTargetAgeMin] = useState('');
+  const [targetAgeMax, setTargetAgeMax] = useState('');
+  const [targetCountry, setTargetCountry] = useState('');
+  const [targetCity, setTargetCity] = useState('');
+  const [targetCategory, setTargetCategory] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBuyingTokens, setIsBuyingTokens] = useState(false);
 
@@ -82,7 +87,8 @@ export function AdsManager() {
 
         // Create Ad
         const newAdRef = doc(collection(db, 'ads'));
-        transaction.set(newAdRef, {
+        
+        const adData: any = {
           userId: user.uid,
           title,
           description,
@@ -91,13 +97,26 @@ export function AdsManager() {
           status: 'pending', // Requires admin approval
           isActive: true,
           createdAt: serverTimestamp()
-        });
+        };
+
+        if (targetAgeMin) adData.targetAgeMin = parseInt(targetAgeMin, 10);
+        if (targetAgeMax) adData.targetAgeMax = parseInt(targetAgeMax, 10);
+        if (targetCountry) adData.targetCountry = targetCountry;
+        if (targetCity) adData.targetCity = targetCity;
+        if (targetCategory) adData.targetCategory = targetCategory;
+
+        transaction.set(newAdRef, adData);
       });
 
       setTitle('');
       setDescription('');
       setLinkUrl('');
       setImageUrl('');
+      setTargetAgeMin('');
+      setTargetAgeMax('');
+      setTargetCountry('');
+      setTargetCity('');
+      setTargetCategory('');
       alert('Ad submitted for review! 50 tokens have been deducted.');
     } catch (error: any) {
       console.error(error);
@@ -171,7 +190,48 @@ export function AdsManager() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
               <Textarea value={description} onChange={e => setDescription(e.target.value)} required maxLength={500} rows={3} />
             </div>
-            <Button type="submit" disabled={isSubmitting || tokens < 50} className="bg-orange-500 hover:bg-orange-600 text-white">
+            
+            <div className="pt-4 border-t border-slate-100">
+              <h3 className="text-sm font-bold text-slate-900 mb-3">Targeting (Optional)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Min Age</label>
+                    <Input type="number" min="13" max="120" value={targetAgeMin} onChange={e => setTargetAgeMin(e.target.value)} placeholder="e.g. 18" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Max Age</label>
+                    <Input type="number" min="13" max="120" value={targetAgeMax} onChange={e => setTargetAgeMax(e.target.value)} placeholder="e.g. 65" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Category</label>
+                  <select 
+                    value={targetCategory} 
+                    onChange={e => setTargetCategory(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+                  >
+                    <option value="">All Categories</option>
+                    <option value="Education">Education</option>
+                    <option value="Technology">Technology</option>
+                    <option value="Health">Health</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="Lifestyle">Lifestyle</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Target Country</label>
+                  <Input value={targetCountry} onChange={e => setTargetCountry(e.target.value)} placeholder="e.g. United States" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Target City</label>
+                  <Input value={targetCity} onChange={e => setTargetCity(e.target.value)} placeholder="e.g. New York" />
+                </div>
+              </div>
+            </div>
+
+            <Button type="submit" disabled={isSubmitting || tokens < 50} className="bg-orange-500 hover:bg-orange-600 text-white w-full mt-4">
               {isSubmitting ? 'Processing...' : 'Pay 50 Tokens & Submit Ad'}
             </Button>
             {tokens < 50 && (

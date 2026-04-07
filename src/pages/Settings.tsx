@@ -27,6 +27,7 @@ export function Settings() {
     hidePhoneNumber: false,
     hideCountry: false,
     hideAge: false,
+    adCategoryPreference: '',
   });
 
   useEffect(() => {
@@ -54,6 +55,7 @@ export function Settings() {
             hidePhoneNumber: data.hidePhoneNumber || false,
             hideCountry: data.hideCountry || false,
             hideAge: data.hideAge || false,
+            adCategoryPreference: data.adCategoryPreference || '',
           });
         }
       } catch (err) {
@@ -109,6 +111,7 @@ export function Settings() {
         hidePhoneNumber: formData.hidePhoneNumber,
         hideCountry: formData.hideCountry,
         hideAge: formData.hideAge,
+        adCategoryPreference: formData.adCategoryPreference,
         isProfileComplete: isComplete
       };
       if (ageNum !== null) privateData.age = ageNum;
@@ -243,6 +246,29 @@ export function Settings() {
               <input type="checkbox" id="hideAge" name="hideAge" checked={formData.hideAge} onChange={handleChange} className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500" />
               <label htmlFor="hideAge" className="text-sm text-slate-600">Hide on profile</label>
             </div>
+          </div>
+        </div>
+
+        <div className="space-y-4 pt-4">
+          <h2 className="text-lg font-semibold text-slate-800 border-b pb-2">Ad Preferences</h2>
+          <p className="text-sm text-slate-500">Select the category of advertisements you are most interested in seeing.</p>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Preferred Ad Category</label>
+            <select 
+              name="adCategoryPreference" 
+              value={formData.adCategoryPreference} 
+              onChange={handleChange}
+              className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+            >
+              <option value="">No Preference (Show all)</option>
+              <option value="Education">Education</option>
+              <option value="Technology">Technology</option>
+              <option value="Health">Health</option>
+              <option value="Finance">Finance</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Lifestyle">Lifestyle</option>
+            </select>
           </div>
         </div>
 

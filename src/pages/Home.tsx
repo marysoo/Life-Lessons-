@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, orderBy, onSnapshot, limit, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardContent, CardFooter } from '../components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
@@ -10,6 +11,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrorHandler';
 
 export function Home() {
+  const { profileData } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
   const [ads, setAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,8 @@ export function Home() {
 
     const qAds = query(collection(db, 'ads'), where('status', '==', 'approved'), where('isActive', '==', true));
     const unsubAds = onSnapshot(qAds, (snapshot) => {
-      setAds(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      const allAds = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setAds(allAds);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'ads');
     });
@@ -42,6 +45,26 @@ export function Home() {
       unsubAds();
     };
   }, []);
+
+  // Filter ads based on user profile data
+  const filteredAds = ads.filter(ad => {
+    if (!profileData) return true; // If not logged in or no profile, show all ads
+
+    // Check Age
+    if (ad.targetAgeMin && profileData.age && profileData.age < ad.targetAgeMin) return false;
+    if (ad.targetAgeMax && profileData.age && profileData.age > ad.targetAgeMax) return false;
+
+    // Check Country
+    if (ad.targetCountry && profileData.country && ad.targetCountry.toLowerCase() !== profileData.country.toLowerCase()) return false;
+
+    // Check City
+    if (ad.targetCity && profileData.city && ad.targetCity.toLowerCase() !== profileData.city.toLowerCase()) return false;
+
+    // Check Category Preference
+    if (ad.targetCategory && profileData.adCategoryPreference && ad.targetCategory !== profileData.adCategoryPreference) return false;
+
+    return true;
+  });
 
   const filteredPosts = selectedTag 
     ? posts.filter(post => post.tags && post.tags.includes(selectedTag))
@@ -152,10 +175,10 @@ export function Home() {
             </CardContent>
           </Card>
 
-          {ads.length > 0 && (
+          {filteredAds.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sponsored</h3>
-              {ads.map(ad => (
+              {filteredAds.map(ad => (
                 <a key={ad.id} href={ad.linkUrl} target="_blank" rel="noopener noreferrer" className="block bg-white p-4 rounded-xl border border-sky-100 shadow-sm hover:shadow-md transition-shadow group">
                   {ad.imageUrl && <img src={ad.imageUrl} alt={ad.title} className="w-full h-32 object-cover rounded-lg mb-3" />}
                   <h4 className="font-bold text-sky-950 text-sm group-hover:text-orange-600 transition-colors">{ad.title}</h4>

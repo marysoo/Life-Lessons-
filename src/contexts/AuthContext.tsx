@@ -16,6 +16,7 @@ interface AuthContextType {
   tokens: number;
   isProfileComplete: boolean;
   isOnline: boolean;
+  profileData: any;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   sendPhoneOtp: (phoneNumber: string, containerId: string) => Promise<void>;
@@ -32,6 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tokens, setTokens] = useState(0);
   const [isProfileComplete, setIsProfileComplete] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
+  const [profileData, setProfileData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
@@ -53,12 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setTokens(data.tokens || 0);
             setIsProfileComplete(data.isProfileComplete || false);
             setIsOnline(data.isOnline || false);
+            setProfileData(data);
           } else {
             // Create user documents if they don't exist
             const timestamp = serverTimestamp();
             const displayName = currentUser.displayName || currentUser.phoneNumber || 'Anonymous User';
             
-            await setDoc(privateUserRef, {
+            const newUserData = {
               uid: currentUser.uid,
               email: currentUser.email || '',
               phoneNumber: currentUser.phoneNumber || '',
@@ -72,7 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               isOnline: true,
               lastSeen: timestamp,
               createdAt: timestamp,
-            });
+            };
+
+            await setDoc(privateUserRef, newUserData);
 
             await setDoc(publicProfileRef, {
               uid: currentUser.uid,
@@ -93,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setTokens(100);
             setIsProfileComplete(false);
             setIsOnline(true);
+            setProfileData(newUserData);
           }
           setLoading(false);
         });
@@ -191,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profileRole, isBlocked, tokens, isProfileComplete, isOnline, loading, signInWithGoogle, sendPhoneOtp, verifyPhoneOtp, logOut }}>
+    <AuthContext.Provider value={{ user, profileRole, isBlocked, tokens, isProfileComplete, isOnline, profileData, loading, signInWithGoogle, sendPhoneOtp, verifyPhoneOtp, logOut }}>
       {children}
     </AuthContext.Provider>
   );
